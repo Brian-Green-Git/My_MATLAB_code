@@ -131,10 +131,6 @@ classdef Q_Ed_App_exported < matlab.apps.AppBase
     end
 
 
-    % Public properties that correspond to the Simulink model
-    properties (Access = public, Transient)
-        Simulation simulink.Simulation
-    end
 
       
     properties (Access = public)
