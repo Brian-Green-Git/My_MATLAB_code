@@ -147,7 +147,7 @@ classdef Q_Ed_App_exported < matlab.apps.AppBase
         width
         height
         hImage
-        exposure 
+        exposure = -4
         gain 
         shutter 
         currentfileloc = ("");
