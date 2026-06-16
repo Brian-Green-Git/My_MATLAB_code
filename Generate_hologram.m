@@ -1,43 +1,59 @@
 classdef Generate_hologram
     methods (Static = true)
-        function Parameters(Mode_type, index1, index2)
+        function Parameters(Mode_type, index1, index2, pixel_value, type_change, Shift_x, Shift_y)
             MODE = Mode_type;
-            n = index1;
-            m = index2;
-
-            p = index1;
-            l = index2;
-
-            if MODE == "SUPER"
-                super_list = { {MODE, index2, index1, 1}, {MODE, index1, index2, 1} };
-            end
             
             SLM_params = SLM_Params.Parameters();
             
             switch upper(MODE)
                 case 'HG'
-                    % single Hermite‑Gauss mode
-                    U = SL_Mode_Functions.HG_field(n, m, SLM_params.X, SLM_params.Y, SLM_params.w, SLM_params.R, SLM_params.z, SLM_params.k, SLM_params.gouy, SLM_params.w0);
+                    % Single Hermite‑Gauss mode: index1=n, index2=m
+                    U = SL_Mode_Functions.HG_field(index1, index2, ...
+                        SLM_params.X, SLM_params.Y, SLM_params.w, SLM_params.R, ...
+                        SLM_params.z, SLM_params.k, SLM_params.gouy, SLM_params.w0);
+                    
                 case 'LG'
-                    % single Laguerre‑Gauss mode
-                    U = SL_Mode_Functions.LG_field(p, l, SLM_params.X, SLM_params.Y, SLM_params.w, SLM_params.R, SLM_params.z, SLM_params.k, SLM_params.gouy, SLM_params.w0);
-                case 'SUPER'
-                    % superposition of several modes (HG and/or LG)
-                    U = zeros(size(X));
+                    % Single Laguerre‑Gauss mode: index1=p, index2=l
+                    U = SL_Mode_Functions.LG_field(index1, index2, ...
+                        SLM_params.X, SLM_params.Y, SLM_params.w, SLM_params.R, ...
+                        SLM_params.z, SLM_params.k, SLM_params.gouy, SLM_params.w0);
+                    
+                case 'SUPER HG'
+                    % Superposition of HG modes
+                    % index1 and index2 define the pair: HG(index1,index2) + HG(index2,index1)
+                    U = zeros(size(SLM_params.X));
+                    super_list = { {'HG', index1, index2, 1}, ...
+                                   {'HG', index2, index1, 1} };
                     for idx = 1:length(super_list)
-                        type  = super_list{idx}{1};   % 'HG' or 'LG'
-                        ind1  = super_list{idx}{2};   % n or p
-                        ind2  = super_list{idx}{3};   % m or l
-                        coeff = super_list{idx}{4};   % complex weight
-                        switch type
-                            case 'HG'
-                                U = U + coeff * SL_Mode_Functions.HG_field(ind1, ind2, SLM_params.X, SLM_params.Y, SLM_params.w, SLM_params.R, SLM_params.z, SLM_params.k, SLM_params.gouy, SLM_params.w0);
-                            case 'LG'
-                                U = U + coeff * SL_Mode_Functions.LG_field(ind1, ind2, SLM_params.X, SLM_params.Y, SLM_params.w, SLM_params.R, SLM_params.z, SLM_params.k, SLM_params.gouy, SLM_params.w0);
-                        end
+                        ind1  = super_list{idx}{2};   % n
+                        ind2  = super_list{idx}{3};   % m
+                        coeff = super_list{idx}{4};   % weight
+                        U = U + coeff * SL_Mode_Functions.HG_field(ind1, ind2, ...
+                            SLM_params.X, SLM_params.Y, SLM_params.w, SLM_params.R, ...
+                            SLM_params.z, SLM_params.k, SLM_params.gouy, SLM_params.w0);
                     end
+                    
+                case 'SUPER LG'
+                    % Superposition of LG modes
+                    % For petal patterns, use opposite topological charges
+                    % index1 = p (radial index), index2 = |l| (absolute topological charge)
+                    % Creates LG(p, +l) + LG(p, -l)
+                    p_val = index1;
+                    l_val = abs(index2);  % ensure positive, then use ±l
+                    
+                    U = zeros(size(SLM_params.X));
+                    super_list = { {'LG', p_val, +l_val, 1}, ...
+                                   {'LG', p_val, -l_val, 1} };
+                    for idx = 1:length(super_list)
+                        ind1  = super_list{idx}{2};   % p
+                        ind2  = super_list{idx}{3};   % l (now with sign)
+                        coeff = super_list{idx}{4};   % weight
+                        U = U + coeff * SL_Mode_Functions.LG_field(ind1, ind2, ...
+                            SLM_params.X, SLM_params.Y, SLM_params.w, SLM_params.R, ...
+                            SLM_params.z, SLM_params.k, SLM_params.gouy, SLM_params.w0);
+                    end                
                 otherwise
-                    error('MODE must be ''HG'', ''LG'' or ''SUPER''.');
+                    error('MODE must be ''HG'', ''LG'', ''SUPER HG'', or ''SUPER LG''.');
             end
             
             % Normalise field power to 1 (arbitrary – just for consistent amplitude scaling)
@@ -92,15 +108,26 @@ classdef Generate_hologram
             SLM_hologram = uint8(256 * Hol / max(Hol(:)));
             
             % Shift the center position of the hologram on the SLM
-            x_shift = -25;   
-            y_shift = 22;  
+            x_shift = Shift_x;   
+            y_shift = Shift_y;  
 
             % Apply the shift using DisplaceHologram
             centered_hologram = optics.DisplaceHologram(SLM_hologram, x_shift, y_shift);
             % to uint8 (DisplaceHologram returns double)
             centered_hologram = uint8(max(0, min(255, centered_hologram)));
-            % Send the centered hologram to the SLM
-            optics.Fullscreen(centered_hologram, 2);
+            % change the greyscale value of the hologram
+            change_in_pixels = pixel_value;
+
+            if type_change == "+"
+                centered_hologram = centered_hologram + uint8(change_in_pixels);
+                % Send the centered hologram to the SLM
+                optics.Fullscreen(centered_hologram, 2);
+            elseif type_change == "-"
+                centered_hologram = centered_hologram - uint8(change_in_pixels);
+                % Send the centered hologram to the SLM
+                optics.Fullscreen(centered_hologram, 2);
+            end
+
         end
     end
 end

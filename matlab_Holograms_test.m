@@ -24,7 +24,7 @@ clear; close all; clc;
 % MODE = 'LG';  p = 10;  l = 10;
 
 % end
-MODE = 'HG';  n = 2;  m = 2;
+% MODE = 'HG';  n = 2;  m = 2;
 
 % if i>10 && i<
 % MODE = 'SUPER';
@@ -38,9 +38,9 @@ MODE = 'HG';  n = 2;  m = 2;
 % super_list = { {'HG',2,1,1}, {'HG',1,2,1} };   % equal weights
 
 % Example 4: Superposition: LG₀⁺² + LG₀⁻²  (petal pattern)
-% MODE = 'SUPER';
-% super_list = { {'LG',1,-3,1}, {'LG',1,3,1} };
-% 
+MODE = 'SUPER';
+super_list = { {'LG',1,-3,1}, {'LG',1,3,1} };
+
 % ------------------- SLM & OPTICAL PARAMETERS ----------------------------
 Nx   = 1024;               % SLM horizontal pixels
 Ny   = 768;                % SLM vertical pixels
